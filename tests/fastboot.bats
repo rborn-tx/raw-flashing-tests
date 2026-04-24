@@ -86,15 +86,24 @@ teardown_file() {
 
 # TODO: IMPLEMENT
 @test "fb-buf: check fastboot buffer address protection (downstream)" {
-    # Downstream case has the variable "fastboot_buffer" that overrides the buffer address.
+    # Downstream case has the variable "fastboot_buffer" that allows arbritrary
+    # setting the buffer address; changes to the address take place right after
+    # every ucmd/acmd execution.
     :
 }
 
-@test "fb-cmd: check getvar command" {
-    run uuu_fb ucmd echo "== Checking getvar command"
+@test "fb-cmd: check getvar command via UUU" {
+    run uuu_fb ucmd echo "== Checking getvar command via UUU"
     assert_success
-
     run uuu_fb getvar "version-bootloader"
+    assert_success
+    assert_output --partial "U-Boot "
+}
+
+@test "fb-cmd: check getvar command via standard fastboot" {
+    run uuu_fb ucmd echo "== Checking getvar command via standard fastboot"
+    assert_success
+    run std_fb getvar "version-bootloader"
     assert_success
     assert_output --partial "U-Boot "
 }
@@ -159,40 +168,106 @@ EOF
     assert_failure
 }
 
-@test "fb-cmd: erase user partition via UUU" {
+@test "fb-cmd: erase and flash user partition" {
+    run uuu_fb ucmd echo "== Checking presence of required variables"
+    assert_success
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_all}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${emmc_dev}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${emmc_ack}"'
+    assert_success
+
     run uuu_fb ucmd echo "== Checking user partition erasing"
     assert_success
-
-    run uuu_fb -t 90000 erase "user"
+    run uuu_fb -t 90000 erase all
     assert_success
+
+    # ---
+    # Generate a disk image:
+    # ---
+    local diskimg="${IMAGE_DIR}/image.tmp/disk.img"
+    rm -fr "${diskimg%/*}"
+    mkdir  "${diskimg%/*}"
+    truncate -s 81M "${diskimg}"
+
+    local MB=$((1024 * 1024 / 512))
+
+    sfdisk "${diskimg}" <<EOF
+label: dos
+unit: sectors
+1 : start=1, size=$((20 * MB)), type=83
+2 : start=$((1 + 20 * MB)), size=$((20 * MB)), type=82
+3 : start=$((1 + 40 * MB)), size=$((20 * MB)), type=0c
+4 : start=$((1 + 60 * MB)), size=$((20 * MB)), type=c1
+EOF
+
+    # ---
+    # Flash disk image:
+    # ---
+    run uuu_fb flash -raw2sparse all "../image.tmp/disk.img"
+    assert_success
+    rm -fr "${diskimg%/*}"
+
+    # ---
+    # Ensure disk image is understood by U-Boot:
+    # ---
+    if [ -n "${SERCAP_CMD}" ]; then
+	# Determine eMMC device.
+	local emmcdev
+	run uuu_fb ucmd 'mmc list'
+	assert_success
+	emmcdev=$(echo "${output}" | sed -ne 's/^.* \([0-9]\) (eMMC).*/\1/p')
+	assert [ -n "${emmcdev}" ]
+
+	# List partitions in the eMMC.
+	run uuu_fb ucmd "mmc dev ${emmcdev}"
+	assert_success
+	run uuu_fb ucmd 'mmc part'
+	assert_success
+
+	# Expected output from U-Boot:
+	#
+	# Part    Start Sector    Num Sectors     UUID            Type
+	#   1     1               40960           0610a0f2-01     83
+	#   2     40961           40960           0610a0f2-02     82
+	#   3     81921           40960           0610a0f2-03     0c
+	#   4     122881          40960           0610a0f2-04     c1
+
+	# Check partition types against expectations.
+	local part partnum partype partype_
+	for part in "1:83" "2:82" "3:0c" "4:c1"; do
+	    partnum=${part%:*}
+	    partype=${part#*:}
+	    partype_=$(echo "${output}" \
+			  | sed -ne '/part.*start.*num.*type/I,$ p' \
+			  | sed -ne "$((partnum+1))"'{s/^[[:space:]]*//; s/[[:space:]]\+/;/g; p}' \
+			  | cut -d';' -f5)
+	    assert [ "${partype}" = "${partype_}" ]
+	done
+    fi
 }
 
-@test "fb-cmd: erase boot partitions via UUU" {
-    run uuu_fb ucmd echo "== Checking boot partition erasing"
+@test "fb-cmd: erase boot partitions" {
+    run uuu_fb ucmd echo "== Checking presence of required variables"
+    assert_success
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_all}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${emmc_dev}"'
+    assert_success
+    run uuu_fb ucmd 'test -n "${emmc_ack}"'
     assert_success
 
-    run uuu_fb erase "boot0"
-    assert_success
-    run uuu_fb erase "boot1"
-    assert_success
-}
-
-@test "fb-cmd: check getvar command via standard fastboot" {
-    run uuu_fb ucmd echo "== Checking getvar command via standard fastboot"
+    run uuu_fb ucmd echo "=="; echo "== Erasing 1st boot partition partially"; echo "=="
+    run uuu_fb ucmd 'mmc dev "${emmc_dev}" 1 && mmc erase 0 200'
     assert_success
 
-    run std_fb getvar "version-bootloader"
-    assert_success
-    assert_output --partial "U-Boot "
-}
-
-@test "fb-cmd: erase boot partitions via standard fastboot" {
-    run uuu_fb ucmd echo "== Checking boot partition erasing via standard fastboot"
-    assert_success
-
-    run std_fb erase "boot0"
-    assert_success
-    run std_fb erase "boot1"
+    run uuu_fb ucmd echo "=="; echo "== Erasing 2nd boot partition partially"; echo "=="
+    run uuu_fb ucmd 'mmc dev "${emmc_dev}" 2 && mmc erase 0 200'
     assert_success
 }
 

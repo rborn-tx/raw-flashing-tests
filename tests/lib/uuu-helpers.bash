@@ -19,11 +19,13 @@ SERCAP_DIR=${SERCAP_DIR-""}
 SERCAP_VERBOSE=${SERCAP_VERBOSE-"0"}
 
 # Note: For things to work the UUU verbose flag must be specified.
-UUU_FLAGS=${UUU_FLAGS-"-v -t 120"}
+UUU_FLAGS=${UUU_FLAGS-"-v"}
 UUU_QUIET=${UUU_QUIET:-"1"}
 
 # Flags passed to the fastboot command.
-FB_FLAGS=${FB_FLAGS-"-v"}
+FASTBOOT_FLAGS=${FASTBOOT_FLAGS-"-v"}
+FASTBOOT_CMD=$(which fastboot)
+
 
 # TODO: Determine VID/PID from image.
 VID=0x1b67
@@ -185,6 +187,7 @@ uuu_load() {
         else
             echo "** Running with U-Boot console capture DISABLED."
         fi
+        echo ""
         echo "** Please put device into recovery mode."
     } >&3
 
@@ -192,6 +195,9 @@ uuu_load() {
     _uuu_load "$@"
     local res=$?
     sercap_stop
+
+    echo "" >&3
+
     return ${res}
 }
 
@@ -208,12 +214,17 @@ uuu_fb() {
 }
 
 _std_fb() {
+    if [ -z "${FASTBOOT_CMD}" ]; then
+	echo "## ERROR: _std_fb called with fastboot command not available" >&3
+	return 1
+    fi
+
     local res="0"
     # Run "fastboot" in the image directory.
     (
         cd "${IMAGE_DIR}"
         # shellcheck disable=SC2086
-        fastboot ${FB_FLAGS} "$@"
+        ${FASTBOOT_CMD} ${FASTBOOT_FLAGS} "$@"
     ) || res=$?
 
     echo "STD:FB:COMMAND: $*"
