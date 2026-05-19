@@ -17,6 +17,7 @@
 SERCAP_CMD=${SERCAP_CMD-""}
 SERCAP_DIR=${SERCAP_DIR-""}
 SERCAP_VERBOSE=${SERCAP_VERBOSE-"0"}
+SERCAP_DELAY=0.25
 
 # Note: For things to work the UUU verbose flag must be specified.
 UUU_FLAGS=${UUU_FLAGS-"-v"}
@@ -68,6 +69,8 @@ sercap_start() {
     echo "sercap: starting capture"
     ${SERCAP_CMD} > "${SERCAP_DIR}/sercap-last.log" 2>&1 &
     SERCAP_PID=$!
+
+    sleep "${SERCAP_DELAY}"
 }
 
 # Stop the serial capture process and wait for it to finish. Also dump its
@@ -80,7 +83,7 @@ sercap_stop() {
     fi
 
     # Give some time for receiving the serial data.
-    sleep 1
+    sleep "${SERCAP_DELAY}"
 
     echo "sercap: waiting capture to stop"
     kill "${SERCAP_PID}"
@@ -119,13 +122,9 @@ _uuu_load() {
     (
         cd "${IMAGE_DIR}"
         mkdir -p generated.tmp/
-        cat <<EOF >generated.tmp/uuu.auto
-uuu_version 1.5.165
-SDPS: boot -f ../imx-boot-recoverytezi
-SDPS: done
-EOF
+	# Use Fastboot-entering script from base image.
+	cp flash/fastboot.uuu generated.tmp/uuu.auto
         _uuu_run generated.tmp/
-
     ) || res=$?
 
     rm -fr "${IMAGE_DIR}/generated.tmp"

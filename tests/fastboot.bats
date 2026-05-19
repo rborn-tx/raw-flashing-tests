@@ -18,7 +18,8 @@ teardown_file() {
         skip "serial capture not enabled"
     fi
 
-    # TODO: Add more tests:
+    # TODO: Add more tests.
+    # TODO: Use functions from cp-helpers.bash.
     # Failure case: below RAM start.
     # Good case: right above RAM start.
     # Failure case: above 1G-64M.
@@ -173,7 +174,7 @@ EOF
     assert_success
     run uuu_fb ucmd 'test -n "${fastboot_partition_alias_all}"'
     assert_success
-    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}"'
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}${fastboot_raw_partition_bootloader}"'
     assert_success
     run uuu_fb ucmd 'test -n "${emmc_dev}"'
     assert_success
@@ -255,7 +256,7 @@ EOF
     assert_success
     run uuu_fb ucmd 'test -n "${fastboot_partition_alias_all}"'
     assert_success
-    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}"'
+    run uuu_fb ucmd 'test -n "${fastboot_partition_alias_bootloader}${fastboot_raw_partition_bootloader}"'
     assert_success
     run uuu_fb ucmd 'test -n "${emmc_dev}"'
     assert_success
@@ -321,7 +322,7 @@ EOF
 }
 
 @test "fb-cmd: check oem partconf command" {
-    run uuu_fb ucmd echo "== Checking oem partcon command"
+    run uuu_fb ucmd echo "== Checking oem partconf command"
     assert_success
 
     local boot_ack="1"

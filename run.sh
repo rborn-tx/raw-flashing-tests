@@ -2,8 +2,7 @@
 
 IMAGE_DIR=${1?Image directory must be passed}
 IMAGE_DIR=$(realpath ${IMAGE_DIR})
-#SERCAP_CMD=${SERCAP_CMD-"socat - /dev/ttyUSB5,b115200,raw,echo=0"}
-SERCAP_CMD=${SERCAP_CMD-"nc localhost 2005"}
+#SERCAP_CMD=${SERCAP_CMD-"nc localhost 2004"}
 SERCAP_DIR=${SERCAP_DIR-"$(pwd)"}
 SERCAP_VERBOSE=${SERCAP_VERBOSE-"0"}
 
