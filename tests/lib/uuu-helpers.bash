@@ -102,8 +102,15 @@ sercap_stop() {
 _uuu_run() {
     local dir_ out_ res_
     dir_=${1?Directory required}
+    if [ -e "recovery/" ]; then
+	out_=$(./recovery/uuu ${UUU_FLAGS} "${dir_}" 2>&1)
+    elif [ -e "flash/" ]; then
+	out_=$(./flash/uuu ${UUU_FLAGS} "${dir_}" 2>&1)
+    else
+        echo "Directory '${dir_}' does not have a 'recovery' or 'flash' subdirectory; aborting." >&2
+	return 1
+    fi
     # shellcheck disable=SC2086
-    out_=$(./recovery/uuu ${UUU_FLAGS} "${dir_}" 2>&1)
     res_=$?
     # UUU outputs ANSI escape sequences: drop them
     out_=$(echo "${out_}" | sed -Ee 's/\x1B\[[0-9;]*[A-Za-z]//g')
