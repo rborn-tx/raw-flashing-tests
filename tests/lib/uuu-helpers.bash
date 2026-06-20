@@ -98,16 +98,15 @@ sercap_stop() {
         "${SERCAP_DIR}/sercap.log" 2>/dev/null
 }
 
-# Helper to run UUU (must be run in the TEZI image directory)
+# Helper to run UUU (must be run in the image directory)
 _uuu_run() {
-    local dir_ out_ res_
-    dir_=${1?Directory required}
+    local out_ res_
     if [ -e "recovery/" ]; then
-	out_=$(./recovery/uuu ${UUU_FLAGS} "${dir_}" 2>&1)
+	out_=$(./recovery/uuu ${UUU_FLAGS} "$@" 2>&1)
     elif [ -e "flash/" ]; then
-	out_=$(./flash/uuu ${UUU_FLAGS} "${dir_}" 2>&1)
+	out_=$(./flash/uuu ${UUU_FLAGS} "$@" 2>&1)
     else
-        echo "Directory '${dir_}' does not have a 'recovery' or 'flash' subdirectory; aborting." >&2
+        echo "Directory '$(pwd)' does not have a 'recovery' or 'flash' subdirectory; aborting." >&2
 	return 1
     fi
     # shellcheck disable=SC2086
@@ -128,13 +127,13 @@ _uuu_load() {
     # Run UUU in the image directory.
     (
         cd "${IMAGE_DIR}"
-        mkdir -p generated.tmp/
-	# Use Fastboot-entering script from base image.
-	cp flash/fastboot.uuu generated.tmp/uuu.auto
-        _uuu_run generated.tmp/
+	rm -fr flash.tmp/
+	cp -a flash/ flash.tmp/
+	# Enter fastboot.
+        _uuu_run flash.tmp/fastboot.uuu
     ) || res=$?
 
-    rm -fr "${IMAGE_DIR}/generated.tmp"
+    rm -fr "${IMAGE_DIR}/flash.tmp"
     echo "UUU:LOAD:STATUS: ${res}"
 
     return ${res}
@@ -150,18 +149,19 @@ _uuu_fb() {
     # Run UUU in the image directory.
     (
         cd "${IMAGE_DIR}"
-        mkdir -p generated.tmp/
-        cat <<EOF >generated.tmp/uuu.auto
+	rm -fr flash.tmp/
+	cp -a flash/ flash.tmp/
+        cat <<EOF >flash.tmp/uuu.auto
 uuu_version 1.5.165
 CFG: FB: -vid ${VID} -pid ${PID}
 FB${toutstr}: $*
 FB: done
 EOF
-        _uuu_run generated.tmp/
+        _uuu_run flash.tmp/
 
     ) || res=$?
 
-    rm -fr "${IMAGE_DIR}/generated.tmp"
+    rm -fr "${IMAGE_DIR}/flash.tmp"
     echo "UUU:FB:COMMAND: $*"
     echo "UUU:FB:STATUS: ${res}"
 
