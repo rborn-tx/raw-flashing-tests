@@ -49,8 +49,8 @@ Environment variables accepted by `run.sh`:
 
 ## License
 
-All scripts and tests are MIT licensed unless otherwise stated. Third-party
-components fetched by `setup.sh` (the BATS repositories) are under their own
-licenses.
+All scripts and tests are MIT licensed unless otherwise stated; see the
+[LICENSE](./LICENSE) file. Third-party components fetched by `setup.sh`
+(the BATS repositories) are under their own licenses.
 
 This README document is Copyright (C) 2026 Toradex AG.
